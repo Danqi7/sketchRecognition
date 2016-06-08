@@ -135,15 +135,55 @@ class HMM:
         #each row represents the probability of that state at that time given that evidence
         #the memorization would be a  len(evidence) x len(states)
         #here, len(states) is 2 since the states are 1)text and 2)drawing
-        row = [0,0]
-        table[0] = [self.priors["text"], self.priors["drawing"]] #prior probabilities
+        row = [0]*len(self.states)
+        table = []
+        table.append([self.priors["text"], self.priors["drawing"]]) #prior probabilities
 
-        for i in range(len())
+        #for each given evidence
+        for i in range(1, len(data)+1):
+            row = [-1000,-1000]
+            #for each possible state
+            for k in range(len(self.states)):
+                if k == 0:
+                    key = "text"
+                elif k == 1:
+                    key = "drawing"
+                #find the prob of sequence of states ending at state k
+                #given the evidence and the previous state
+                #fill the table with the max prob
+                for j in range(len(self.states)):
+                    if j == 0:
+                        key1 = "text"
+                    elif j == 1:
+                        key1 = "drawing"
+                    print table[i-1][j]
+                    print self.transitions[key][key1]
+                    print self.emissions[key]["length"][data[i-1]["length"]]
 
+                    row[k] = max(table[i-1][j]*self.transitions[key][key1]*self.emissions[key]["length"][data[i-1]["length"]], row[k])
+
+            table.append(row)
+
+            learnedStates = [0]*len(data)
+            #find the sequence of states using the max prob
+            if table[len(data)][0] > table[len(data)][1]: #text is more likely
+                learnedStates[len(data)-1] = "text"
+            else:
+                learnedStates[len(data)-1] = "drawing"
+
+            #
+            for i in range(2,len(data)):
+                temp_emission = self.emissions[learnedStates[len(data)-i+1]]["length"]data[len(data)-i+1]["length"]
+                if table[len(data)+1-i][]
+
+
+                if table[len(data)+1-i][0] *
+                learnedStates[len(data)-i] =
 
 
 
         print "label function not yet implemented"
+        print table
         return None
 
 
