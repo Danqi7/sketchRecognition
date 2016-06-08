@@ -1,0 +1,7 @@
+*.pdf
+*.swp
+.DS_Store
+*.txt
+*.jar
+*.zip
+*/
