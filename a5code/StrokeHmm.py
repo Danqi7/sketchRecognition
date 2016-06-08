@@ -3,6 +3,7 @@ import copy
 import guid
 import math
 import os
+import sys
 
 # A couple contants
 CONTINUOUS = 0
@@ -164,26 +165,50 @@ class HMM:
 
             table.append(row)
 
-            learnedStates = [0]*len(data)
-            #find the sequence of states using the max prob
-            if table[len(data)][0] > table[len(data)][1]: #text is more likely
-                learnedStates[len(data)-1] = "text"
-            else:
-                learnedStates[len(data)-1] = "drawing"
-
-            #
-            for i in range(2,len(data)):
-                temp_emission = self.emissions[learnedStates[len(data)-i+1]]["length"]data[len(data)-i+1]["length"]
-                if table[len(data)+1-i][]
-
-
-                if table[len(data)+1-i][0] *
-                learnedStates[len(data)-i] =
-
-
-
-        print "label function not yet implemented"
         print table
+        size = len(data)
+        learnedStates = [0]*size
+        #find the sequence of states using the max prob
+        if table[size][0] > table[size][1]: #text is more likely
+            learnedStates[size-1] = "text"
+        else:
+            learnedStates[size-1] = "drawing"
+
+        #find the previous state by matching the calculation result
+        i = size - 1
+        target = max(table[size][0], table[size][1])
+        while i >= 1:
+            print i
+            # print learnedStates[i]
+            # print self.emissions[learnedStates[i]]["length"]
+            temp_emission = self.emissions[learnedStates[i]]["length"][data[i]["length"]]
+            text_transition = self.transitions[learnedStates[i]]["text"]
+            dr_transition = self.transitions[learnedStates[i]]["drawing"]
+
+            #if the previous state is text
+            print "target is :"
+            print target
+
+            if table[i][0] * temp_emission * text_transition == target:
+                target = table[i][0]
+                learnedStates[i-1] = "text"
+            #if the previous state is drawing
+            elif table[i][1] * temp_emission * dr_transition == target:
+                target = table[i][1]
+                learnedStates[i-1] = "drawing"
+            elif abs(table[i][0] * temp_emission * text_transition-target) < abs(table[i][1] * temp_emission * dr_transition-target):
+                target = table[i][0]
+                learnedStates[i-1] = "text"
+            else:
+                target = table[i][1]
+                learnedStates[i-1] = "drawing"
+            print learnedStates
+
+            i = i - 1
+
+
+        print '"-------------------------------------"'
+        print learnedStates
         return None
 
 
