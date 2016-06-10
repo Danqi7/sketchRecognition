@@ -8,7 +8,7 @@ import sys
 # A couple contants
 CONTINUOUS = 0
 DISCRETE = 1
-Maxint = 2147000000
+Maxint = 200000000
 
 class HMM:
     ''' Code for a hidden Markov Model '''
@@ -234,9 +234,9 @@ class StrokeLabeler:
         #    name to whether it is continuous or discrete
         # numFVals is a dictionary specifying the number of legal values for
         #    each discrete feature
-        self.featureNames = ['length']
-        self.contOrDisc = {'length': DISCRETE}
-        self.numFVals = { 'length': 2}
+        self.featureNames = ['length', 'boundRatio']
+        self.contOrDisc = {'length': DISCRETE, 'boundRatio': DISCRETE}
+        self.numFVals = { 'length': 2, 'boundRatio': 2}
 
     def featurefy( self, strokes ):
         ''' Converts the list of strokes into a list of feature dictionaries
@@ -263,6 +263,13 @@ class StrokeLabeler:
             # to use.  This is an important process and can be tricky.  Try
             # to use a principled approach (i.e., look at the data) rather
             # than just guessing.
+
+            boundR = s.boundRatio()
+            if abs(boundR - 1 < 0.3):
+                d["boundRatio"] = 0
+            else:
+                d["boundRatio"] = 1
+
             l = s.length()
             if l < 300:
                 d['length'] = 0
@@ -315,6 +322,7 @@ class StrokeLabeler:
             print "Label is", labels[i]
             print "Length is", strokes[i].length()
             print "Curvature is", strokes[i].sumOfCurvature(abs)
+            print "BoundRatio is", strokes[i].BoundRatio()
 
     def labelFile( self, strokeFile, outFile ):
         ''' Label the strokes in the file strokeFile and save the labels
@@ -328,24 +336,59 @@ class StrokeLabeler:
         trueLabels = self.loadLabeledFile ( strokeFile )
         d = self.confusion( trueLabels[1], labels )
 
-    def confusion( self, trueLabel, outLabel ):
-        print ""
-        print "confusion:"
-        d = {}
-        l = len(trueLabel)
-        for i in range (l):
-            trueL = trueLabel[i]
-            outL = outLabel[i]
-            if not (trueL in d):
-                d[trueL] = {}
+    # def confusion( self, trueLabel, outLabel ):
+    #     print ""
+    #     print "confusion:"
+    #     matrix = {}
+    #     l = len(trueLabel)
+    #     for i in range (l):
+    #         trueL = trueLabel[i]
+    #         outL = outLabel[i]
+    #         if not (trueL in matrix):
+    #             matrix[trueL] = {}
+    #
+    #         dd = matrix[trueL]
+    #         if outL in dd:
+    #             dd[outL] += 1
+    #         else:
+    #             dd[outL] = 1
+    #
+    #     sum_t = 0
+    #
+    #     matrix["text"]["percentage"] = float(matrix["text"]["text"] / (matrix["text"]["text"] + matrix["text"]["drawing"]))
+    #     matrix["drawing"]["percentage"] = float(matrix["drawing"]["drawing"] / matrix["drawing"]["text"] + matrix["drawing"]["drawing"])
+    #     print matrix
+    #     return matrix
 
-            dd = d[trueL]
-            if outL in dd:
-                dd[outL] += 1
-            else:
-                dd[outL] = 1
-        print d
-        return d
+    def confusion(self, trueLabels, classifications):
+        if len(trueLabels) == len(classifications):
+            row = {}
+            for label in self.labels: #initialize
+                row[label] = {}
+                for label2 in self.labels:
+                    row[label][label2] = 0
+
+            for label,x in enumerate(classifications):
+                if trueLabels[label] == 'drawing':
+                    if x == trueLabels[label]:
+                        row['drawing']['drawing'] += 1
+                    else:
+                        row['drawing']['drawing'] += 1
+                if trueLabels[label] == 'text':
+                    if x == trueLabels[label]:
+                        row['text']['text'] += 1
+                    else:
+                        row['text']['drawing'] += 1
+
+            row["text"]["percentage"] = float(row["text"]["text"]) / (row["text"]["text"] + row["text"]["drawing"])
+            row["drawing"]["percentage"] = float(row["drawing"]["drawing"]) / (row["drawing"]["text"] + row["drawing"]["drawing"])
+
+            print row
+            return row
+
+        else:
+            print "Invalid input"
+            return
 
     def labelStrokes( self, strokes ):
         ''' return a list of labels for the given list of strokes '''
@@ -578,6 +621,23 @@ class Stroke:
             prev = p
         return ret
 
+    def boundRatio(self):
+        """ Returns the bounding height/width ratio of the stroke"""
+        x = []
+        y = []
+        for p in self.points:
+            x.append(p[0])
+            y.append(p[1])
+
+        x_max = max(x)
+        x_min = min(x)
+        y_max = max(y)
+        y_min = max(y)
+
+        if (x_max-x_min) != 0:
+            return float((y_max-y_min)) / (x_max-x_min)
+        else:
+            return 0
 
 
     def sumOfCurvature(self, func=lambda x: x, skip=1):
@@ -656,6 +716,6 @@ if __name__ == '__main__':
     ]
     print hmm.label(data)
 
-# x = StrokeLabeler()
-# x.trainHMMDir("../trainingFiles/")
-# x.labelFile("../trainingFiles/0128_1.6.1.labeled.xml", "results.txt")
+    x = StrokeLabeler()
+    x.trainHMMDir("../trainingFiles1/")
+    x.labelFile("../trainingFiles/0128_1.7.1.labeled.xml", "results.txt")
