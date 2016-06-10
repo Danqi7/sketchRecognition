@@ -131,7 +131,11 @@ class HMM:
         ''' get the emission probiblity by taking in features and the i the evident.
             return probability
         '''
-        return self.emissions[state][feature][data[num][feature]]
+        res = 1
+        for i in range(len(feature)):
+            res *= self.emissions[state][feature[i]][data[num][feature[i]]]
+        #return self.emissions[state][feature][data[num][feature]]
+        return res
 
     def label( self, data ):
         ''' Find the most likely labels for the sequence of data
@@ -141,46 +145,47 @@ class HMM:
         #find the max probability
         #each row represents the probability of that state at that time given that evidence
         #the memorization would be a  len(evidence) x len(states)
-        feature = "H"
-        s = self.states
-        slen = len(s)
-        row = [0] * slen
+        feature = self.featureNames
+        row = [0] * len(self.states)
         table = []
-        dlen = len(data)
-        path = [[-1 for i in range(slen)] for j in range (dlen)]
+        size = len(data)
+        path = [[-1 for i in range(len(self.states))] for j in range (size)]
 
-        for i in range (slen):
-            row[i] = self.priors[s[i]] * self.emissionProb(data, 0, s[i], feature)
+        for i in range (len(self.states)):
+            row[i] = self.priors[self.states[i]] * self.emissionProb(data, 0, self.states[i], feature)
         #first row of the table that calculates the prob of each state given the evidence
         table.append(row)
 
         #for each given evidence
-        for i in range(1, dlen):
-            row = [-Maxint] * slen
-            for k in range(slen):
+        for i in range(1, size):
+            row = [-Maxint] * len(self.states)
+            for k in range(len(self.states)):
                 for j in range(len(self.states)):
                    tmp = table[i-1][j] * \
-                         self.transitions[s[j]][s[k]] * \
-                         self.emissionProb (data, i, s[k], feature)
+                         self.transitions[self.states[j]][self.states[k]] * \
+                         self.emissionProb (data, i, self.states[k], feature)
                    if tmp > row[k]:
                        row[k] = tmp
                        path[i][k] = j
 
             table.append(row)
 
-        learned = [-1] * dlen
-        ma = 0
-        for i in range(slen):
-            if table[dlen-1][i] > ma:
-                ma = table[dlen-1][i]
-                learned[dlen-1] = i
+        #backpointer to restore the sequences of states
+        learned = [-1] * size
+        pmax = 0
+        for i in range(len(self.states)):
+            if table[size-1][i] > pmax:
+                pmax = table[size-1][i]
+                learned[size-1] = i
 
-        for i in range (dlen-1, 0, -1):
+        for i in range (size-1, 0, -1):
             learned[i-1] = path[i][learned[i]]
-        for i in range (0, dlen):
-            learned[i] = s[learned[i]]
+        for i in range (0, size):
+            learned[i] = self.states[learned[i]]
+
         print table
         print learned
+
         return learned
 
 
