@@ -3,7 +3,7 @@ import copy
 import guid
 import math
 import os
-import sys
+import operator
 
 # A couple contants
 CONTINUOUS = 0
@@ -15,13 +15,13 @@ class HMM:
     def __init__(self, states, features, contOrDisc, numVals):
         ''' Initialize the HMM.
             Input:
-                states: a list of the hidden state possible values ["drawing", "text"]
-                features: a list of feature names ["length",]
+                states: a list of the hidden state possible values
+                features: a list of feature names
                 contOrDisc: a dictionary mapping feature names to integers
                     representing whether the feature is continuous or discrete
                 numVals: a dictionary mapping names of discrete features to
-                    the number of values that feature can take on. [{"length":2},]'''
-        self.states = states
+                    the number of values that feature can take on. '''
+        self.states = states 
         self.isTrained = False
         self.featureNames = features
         self.featuresCorD = contOrDisc
@@ -38,7 +38,7 @@ class HMM:
         self.isTrained = True
         self.trainPriors( trainingData, trainingLabels )
         self.trainTransitions( trainingData, trainingLabels )
-        self.trainEmissions( trainingData, trainingLabels )
+        self.trainEmissions( trainingData, trainingLabels ) 
         print "HMM trained"
         print "Prior probabilities are:", self.priors
         print "Transition model is:", self.transitions
@@ -56,7 +56,7 @@ class HMM:
         self.priors = {}
         for s in self.states:
             self.priors[s] = float(priorCounts[s])/len(trainingLabels)
-
+        
 
     def trainTransitions( self, trainingData, trainingLabels ):
         ''' Give training data and labels, train the transition model '''
@@ -67,14 +67,14 @@ class HMM:
             transitionCounts[s] = {}
             for s2 in self.states:
                 transitionCounts[s][s2] = 0
-
+                
         for labels in trainingLabels:
             if len(labels) > 1:
                 lab1 = labels[0]
                 for lab2 in labels[1:]:
                     transitionCounts[lab1][lab2] += 1
                     lab1 = lab2
-
+                    
         self.transitions = {}
         for s in transitionCounts.keys():
             self.transitions[s] = {}
@@ -97,7 +97,7 @@ class HMM:
         for i in range(len(trainingData)):
             oneSketchFeatures = trainingData[i]
             oneSketchLabels = trainingLabels[i]
-
+            
             for j in range(len(oneSketchFeatures)):
                 features = oneSketchFeatures[j]
                 for f in features.keys():
@@ -125,12 +125,11 @@ class HMM:
                     for i in range(len(self.emissions[s][f])):
                         self.emissions[s][f][i] /= float(len(featureVals[s][f])+self.numVals[f])
 
-
+              
     def label( self, data ):
         ''' Find the most likely labels for the sequence of data
             This is an implementation of the Viterbi algorithm  '''
-        '''data is a list of dictionaries that map to features of each stroke'''
-
+        # You will implement this function
         #find the max probability
 
         #each row represents the probability of that state at that time given that evidence
@@ -138,81 +137,74 @@ class HMM:
         #here, len(states) is 2 since the states are 1)text and 2)drawing
         row = [0]*len(self.states)
         table = []
-        table.append([self.priors["text"], self.priors["drawing"]]) #prior probabilities
+        size = len(data)
+
+        for i in range(len(self.states)):
+            cur = self.states[i]
+            row[i] = self.priors[cur] * self.getEmissionProb(cur, data[0])
+        # row[0] = self.priors["text"] * self.emissions["text"]["length"][data[0]["length"]]
+        # row[1] = self.priors["drawing"] * self.emissions["drawing"]["length"][data[0]["length"]]
+        #first row of the table that calculates the prob of each state given the evidence
+        table.append(row)
 
         #for each given evidence
-        for i in range(1, len(data)+1):
+        for i in range(1, size):
             row = [-1000,-1000]
             #for each possible state
             for k in range(len(self.states)):
-                if k == 0:
-                    key = "text"
-                elif k == 1:
-                    key = "drawing"
+                key  = self.states[k]
                 #find the prob of sequence of states ending at state k
                 #given the evidence and the previous state
                 #fill the table with the max prob
                 for j in range(len(self.states)):
-                    if j == 0:
-                        key1 = "text"
-                    elif j == 1:
-                        key1 = "drawing"
-                    print table[i-1][j]
-                    print self.transitions[key][key1]
-                    print self.emissions[key]["length"][data[i-1]["length"]]
-
-                    row[k] = max(table[i-1][j]*self.transitions[key][key1]*self.emissions[key]["length"][data[i-1]["length"]], row[k])
+                    key1 = self.states[j]
+                    #the max prob ending at state k is the max path from any of the state j to state k
+                    row[k] = max(table[i-1][j]*self.transitions[key][key1]*self.getEmissionProb(key, data[i]), row[k])
 
             table.append(row)
-
         print table
-        size = len(data)
+
+
+        #
         learnedStates = [0]*size
         #find the sequence of states using the max prob
-        if table[size][0] > table[size][1]: #text is more likely
+        if table[size-1][0] > table[size-1][1]: #text is more likely
             learnedStates[size-1] = "text"
-        else:
+        else:#drawing is more likely
             learnedStates[size-1] = "drawing"
 
         #find the previous state by matching the calculation result
         i = size - 1
-        target = max(table[size][0], table[size][1])
-        while i >= 1:
-            print i
-            # print learnedStates[i]
-            # print self.emissions[learnedStates[i]]["length"]
+        target = max(table[size-1][0], table[size-1][1])
+        while i > 0:
             temp_emission = self.emissions[learnedStates[i]]["length"][data[i]["length"]]
             text_transition = self.transitions[learnedStates[i]]["text"]
             dr_transition = self.transitions[learnedStates[i]]["drawing"]
 
             #if the previous state is text
-            print "target is :"
-            print target
-
-            if table[i][0] * temp_emission * text_transition == target:
-                target = table[i][0]
+            if table[i-1][0] * temp_emission * text_transition == target:
+                target = table[i-1][0]
                 learnedStates[i-1] = "text"
             #if the previous state is drawing
-            elif table[i][1] * temp_emission * dr_transition == target:
-                target = table[i][1]
+            elif table[i-1][1] * temp_emission * dr_transition == target:
+                target = table[i-1][1]
                 learnedStates[i-1] = "drawing"
-            elif abs(table[i][0] * temp_emission * text_transition-target) < abs(table[i][1] * temp_emission * dr_transition-target):
-                target = table[i][0]
+            #floating point substraction might result in two same answer not evaluates to true when used "=="
+            #so find the closest one near the target prob
+            elif abs(table[i-1][0] * temp_emission * text_transition-target) < abs(table[i-1][1] * temp_emission * dr_transition-target):
+                target = table[i-1][0]
                 learnedStates[i-1] = "text"
             else:
-                target = table[i][1]
+                target = table[i-1][1]
                 learnedStates[i-1] = "drawing"
             print learnedStates
 
             i = i - 1
 
 
-        print '"-------------------------------------"'
         print learnedStates
-        return None
-
-
-
+        return learnedStates
+    
     def getEmissionProb( self, state, features ):
         ''' Get P(features|state).
             Consider each feature independent so
@@ -230,9 +222,9 @@ class HMM:
             if self.featuresCorD[f] == DISCRETE:
                 fval = features[f]
                 prob *= self.emissions[state][f][fval]
-
+                
         return prob
-
+        
 
 
 class StrokeLabeler:
@@ -243,7 +235,7 @@ class StrokeLabeler:
         drawingLabels = ['Wire', 'AND', 'OR', 'XOR', 'NAND', 'NOT']
         textLabels = ['Label']
         self.labels = ['drawing', 'text']
-
+        
         self.labelDict = {}
         for l in drawingLabels:
             self.labelDict[l] = 'drawing'
@@ -301,9 +293,9 @@ class StrokeLabeler:
 
 
             ret.append(d)  # append the feature dictionary to the list
-
+            
         return ret
-
+    
     def trainHMM( self, trainingFiles ):
         ''' Train the HMM '''
         self.hmm = HMM( self.labels, self.featureNames, self.contOrDisc, self.numFVals )
@@ -326,8 +318,8 @@ class StrokeLabeler:
         for x in lFileList:
             if not x.startswith('.'):
                 goodList.append(x)
-
-        tFiles = [ trainingDir + "/" + f for f in goodList ]
+        
+        tFiles = [ trainingDir + "/" + f for f in goodList ] 
         self.trainHMM(tFiles)
 
     def featureTest( self, strokeFile ):
@@ -339,7 +331,7 @@ class StrokeLabeler:
             print "Label is", labels[i]
             print "Length is", strokes[i].length()
             print "Curvature is", strokes[i].sumOfCurvature(abs)
-
+    
     def labelFile( self, strokeFile, outFile ):
         ''' Label the strokes in the file strokeFile and save the labels
             (with the strokes) in the outFile '''
@@ -357,7 +349,6 @@ class StrokeLabeler:
         strokeFeatures = self.featurefy(strokes)
         return self.hmm.label(strokeFeatures)
 
-
     def saveFile( self, strokes, labels, originalFile, outFile ):
         ''' Save the labels of the stroke objects and the stroke objects themselves
             in an XML format that can be visualized by the labeler.
@@ -367,7 +358,7 @@ class StrokeLabeler:
         # copy most of the data, including all points, substrokes, strokes
         # then just add the shapes onto the end
         impl =  xml.dom.minidom.getDOMImplementation()
-
+        
         newdoc = impl.createDocument(sketch.namespaceURI, "sketch", sketch.doctype)
         top_element = newdoc.documentElement
 
@@ -385,7 +376,7 @@ class StrokeLabeler:
                 elif child.tagName == "shape":
                     if child.getAttribute("type") == "substroke" or \
                        child.getAttribute("type") == "stroke":
-                        top_element.appendChild(child)
+                        top_element.appendChild(child)    
 
         # Finally, add the new elements for the labels
         for i in range(len(strokes)):
@@ -403,9 +394,9 @@ class StrokeLabeler:
                 ssElem.setAttribute("type", "substroke")
                 ssElem.appendChild(newdoc.createTextNode(ss))
                 newElem.appendChild(ssElem)
-
+                
             top_element.appendChild(newElem)
-
+            
 
         # Write to the file
         filehandle = open(outFile, "w")
@@ -423,7 +414,7 @@ class StrokeLabeler:
         # get the points
         points = sketch.getElementsByTagName("point")
         pointsDict = self.buildDict(points)
-
+    
         # now get the strokes by first getting all shapes
         allShapes = sketch.getElementsByTagName("shape")
         shapesDict = self.buildDict(allShapes)
@@ -457,7 +448,7 @@ class StrokeLabeler:
         for n in nodesWithIdAttrs:
             idAttr = n.getAttribute("id")
             ret[idAttr] = n
-
+        
         return ret
 
     def buildStroke( self, shape, shapesDict, pointDict ):
@@ -474,7 +465,7 @@ class StrokeLabeler:
 
             # Add the substroke id to the stroke object
             ret.addSubstroke(ss.firstChild.data)
-
+            
             # Find the shape with the id of this substroke
             ssShape = shapesDict[ss.firstChild.data]
 
@@ -493,7 +484,7 @@ class StrokeLabeler:
                     last = (x, y, time)
         ret.setPoints(points)
         return ret
-
+                
 
     def loadLabeledFile( self, filename ):
         ''' load the strokes and the labels for the strokes from a labeled file.
@@ -502,7 +493,7 @@ class StrokeLabeler:
         # get the points
         points = sketch.getElementsByTagName("point")
         pointsDict = self.buildDict(points)
-
+    
         # now get the strokes by first getting all shapes
         allShapes = sketch.getElementsByTagName("shape")
         shapesDict = self.buildDict(allShapes)
@@ -540,7 +531,7 @@ class StrokeLabeler:
 
         for stroke in noLabels:
             strokes.remove(stroke)
-
+            
         sketch.unlink()
         if len(strokes) != len(labels):
             print "PROBLEM: number of strokes and labels must match"
@@ -553,7 +544,7 @@ class Stroke:
     def __init__(self, strokeId):
         self.strokeId = strokeId
         self.substrokeIds = []   # Keep around the substroke ids for writing back to file
-
+        
     def __repr__(self):
         ''' Return a string representation of the stroke '''
         return "[Stroke " + self.strokeId + "]"
@@ -595,7 +586,7 @@ class Stroke:
         second = self.points[0]
         third = self.points[1*skip]
         for p in self.points[2*skip::skip]:
-
+            
             first = second
             second = third
             third = p
@@ -603,7 +594,7 @@ class Stroke:
             ay = second[1] - first[1]
             bx = third[0] - second[0]
             by = third[1] - second[1]
-
+            
             lena = math.sqrt(ax**2 + ay**2)
             lenb = math.sqrt(bx**2 + by**2)
 
@@ -631,3 +622,32 @@ class Stroke:
         return ret / len(self.points)
 
     # You can (and should) define more features here
+
+#Example
+if __name__ == '__main__':    
+    states = ["S", "C", "R"]
+    features = ["H"]
+    contOrDisc = {"H": DISCRETE}
+    numVals = [4]
+    hmm = HMM(states, features, contOrDisc, numVals)
+    hmm.isTrained = True
+    # features = {"Dry": ,"Dryish": ,"Damp": ,"Soggy": }
+    hmm.priors = {"S": 0.63, "C": 0.17, "R":0.20}
+    hmm.emissions = {
+        "S": {"H": [0.60, 0.20, 0.15, 0.05]}, 
+        "C": {"H": [0.25, 0.25, 0.25, 0.25]}, 
+        "R": {"H": [0.05, 0.10, 0.35, 0.50]}
+    } 
+    hmm.transitions = {
+        "S": {"S": 0.500, "C": 0.250, "R":0.250}, 
+        "C": {"S": 0.375, "C": 0.125, "R":0.375}, 
+        "R": {"S": 0.125, "C": 0.675, "R":0.375}
+    } 
+    data = [
+        {"H": 0}, 
+        {"H": 2}, 
+        {"H": 3}
+    ]
+    print hmm.label(data)
+
+
